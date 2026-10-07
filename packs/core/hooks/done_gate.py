@@ -60,7 +60,7 @@ def verdict(state):
         failed = [e for e in ev if e["kind"] == "check" and not e["ok"] and e["seq"] > last_edit]
         reasons.append("tests" if not failed else "failing")
     sensitive = [e for e in edits if e.get("sensitive")]
-    if sensitive:
+    if sensitive and hlib.healthcare_guards():
         attacks = [e["seq"] for e in edits if e.get("attack")]
         ran = [e["seq"] for e in ev if e["kind"] == "check" and e["ok"] and e.get("test") and e.get("ran", True)]
         if not attacks or not any(s > max(attacks) for s in ran):

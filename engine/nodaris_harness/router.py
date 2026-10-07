@@ -122,7 +122,7 @@ OVERLAY_TEXT = {
 }
 
 
-def route(prompt, use_profile=True):
+def route(prompt, use_profile=True, healthcare=True):
     text = prompt or ""
     playbook = next((name for name, rx in RULES if re.search(rx, text, re.I | re.S)), None)
     if not playbook and use_profile:
@@ -132,7 +132,7 @@ def route(prompt, use_profile=True):
             if name in PLAYBOOKS and words and re.search(r"\b(" + "|".join(re.escape(w) for w in words) + r")\b", text, re.I):
                 playbook = name
                 break
-    overlays = [name for name, rx in OVERLAYS if re.search(rx, text, re.I)]
+    overlays = [name for name, rx in OVERLAYS if (healthcare or name not in GATED) and re.search(rx, text, re.I)]
     return {"playbook": playbook, "overlays": overlays}
 
 
@@ -156,13 +156,14 @@ def risk(decision):
     return level, gates
 
 
-def brief(decision, cli="nodaris-harness"):
+def brief(decision, cli="nodaris-harness", healthcare=True):
     if not decision["playbook"]:
         return ""
     name = decision["playbook"]
     lines = [f"Harness router: this is {TITLES[name].lower()} work. Open a todo list with these steps first, in order; "
              f"a step you skip stays listed with a one-line reason."]
-    lines += [f"{i}. {s.format(cli=cli)}" for i, s in enumerate(PLAYBOOKS[name], 1)]
+    steps = [s for s in PLAYBOOKS[name] if healthcare or "{cli} redact" not in s]
+    lines += [f"{i}. {s.format(cli=cli)}" for i, s in enumerate(steps, 1)]
     for o in decision["overlays"]:
         lines.append("Overlay: " + OVERLAY_TEXT[o])
     level, gates = risk(decision)

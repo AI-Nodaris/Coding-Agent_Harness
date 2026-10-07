@@ -180,6 +180,18 @@ def is_test(path):
     return bool(TEST_PATH.search(path or ""))
 
 
+def healthcare_guards():
+    """False only when the person's harness settings say "healthcare_guards": false; the security procedure and the
+    done gate's attack, threat-model and scan checks then stay quiet. A missing or unreadable file keeps them on."""
+    home = os.environ.get("NODARIS_HARNESS_HOME") or os.path.join(os.path.expanduser("~"), ".nodaris-harness")
+    try:
+        with open(os.path.join(home, "settings.json")) as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return True
+    return not (isinstance(data, dict) and data.get("healthcare_guards") is False)
+
+
 def is_sensitive(path, text=""):
     return bool(SENSITIVE_PATH.search(path or "")) or bool(SENSITIVE_TEXT.search(text or ""))
 

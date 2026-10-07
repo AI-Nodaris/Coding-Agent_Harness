@@ -96,6 +96,12 @@ def _relaxed(rule):
     return False
 
 
+def _healthcare_guards():
+    """The PHI prompt block, the PHI lint, approval to read PHI-marked files and the healthcare security procedure.
+    On unless the person's settings say "healthcare_guards": false."""
+    return _setting("healthcare_guards", True) is not False
+
+
 def _setting(key, default):
     try:
         with open(os.path.join(policy.home(), "settings.json")) as f:
@@ -170,6 +176,8 @@ def _pre_tool(ev):
         _arm_ready(ev)
     pol = policy.load_policy()
     decision = policy.classify(ev["tool_name"], ev.get("tool_input"), ev["cwd"], pol)
+    if decision.rule_id == "C-PHI-SOURCE" and not _healthcare_guards():
+        decision = policy.Decision("routine", action_hash=decision.action_hash)
     if decision.cls == "routine" and not stops:
         return {"decision": "allow"}
     if decision.cls != "routine":
@@ -238,7 +246,8 @@ def forget_shown(session):
 def prompt(ev):
     pol = policy.load_policy()
     text = ev.get("prompt") or ""
-    if pol.get("prompt_phi", "block") == "block" and text:
+    guards = _healthcare_guards()
+    if guards and pol.get("prompt_phi", "block") == "block" and text:
         r = redact.redact_text(text)
         if r.verdict == "refused":
             return {"decision": "block", "rule": "R-DATA-PROMPT",
@@ -251,8 +260,8 @@ def prompt(ev):
                                f"model. Below is the same message with every identifier replaced by a realistic stand-in; "
                                f"send that instead, or use synthetic data.\n\n{r.text}")}
     parts = []
-    decision = router.route(text)
-    parts.append(router.brief(decision, CLI))   # given once per session per route; see _fresh
+    decision = router.route(text, healthcare=guards)
+    parts.append(router.brief(decision, CLI, healthcare=guards))   # given once per session per route; see _fresh
     if signals.is_correction(text):
         signals.record(ev["session_id"], "correction", text, playbook=decision["playbook"])
     elif not decision["playbook"]:
@@ -282,7 +291,9 @@ def post_tool(ev):
     parts = []
     payload = events.claude_payload(ev)
     for name, tools in POST_STEPS:
-        if ev["tool_name"] in tools and (name != "phi_lint.py" or ev["hook_event_name"] == "PostToolUse"):
+        if name == "phi_lint.py" and (ev["hook_event_name"] != "PostToolUse" or not _healthcare_guards()):
+            continue
+        if ev["tool_name"] in tools:
             res = _run(HOOKS_DIR, name, payload)
             if res:
                 parts.append(_context_of(res[1]))
