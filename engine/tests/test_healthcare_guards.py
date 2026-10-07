@@ -130,3 +130,10 @@ def test_off_removes_the_guard_rules_from_the_installed_rules_text(env):
     for kept in ("## Memory loop", "healthcare-domain", "check passed after the last code", "No AI fingerprint"):
         assert kept in off
     assert "pack:" not in off and "\n\n\n" not in off and "\n\n- **" not in off
+
+
+def test_an_agent_cannot_write_the_switch_off_on_a_default_install(env):
+    out = handle(env, hook_event_name="PreToolUse", tool_name="Write",
+                 tool_input={"file_path": os.path.join(policy.home(), "settings.json"),
+                             "content": '{"healthcare_guards": false}'})
+    assert out["decision"] == "deny" and "P-HOOK-BYPASS" in out["rule"]
