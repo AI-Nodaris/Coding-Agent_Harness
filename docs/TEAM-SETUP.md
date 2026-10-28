@@ -50,7 +50,7 @@ cd ~/.nodaris-harness-src
 python3 install.py
 ```
 
-Answer the questions. Say yes when it asks whether you are on the Nodaris team, and yes to Jev. The installer:
+Answer the questions. Give Nodaris as the company, and say yes when it asks whether you are on the Nodaris team, yes to Jev, and yes to team sync if you want your redacted lessons shared with the team and the team's brought back to you ([TEAM-DATA.md](TEAM-DATA.md) lists exactly what is and is not shared). When it offers the `nodaris-context` plugin, say yes: it is the Nodaris memory vault (`NodarisAI/Nodaris-Memory-Vault`), the product map, definitions, conventions and known traps, loaded on demand. The installer:
 
 1. Shows every change it will make to your Claude Code configuration and installs only after you agree.
 2. Runs the doctor, which proves that a secret read, a destructive command, a hook bypass and a push to a protected branch are refused, and that an ordinary command runs.
@@ -116,6 +116,14 @@ To turn off the token line at the end of each reply, set `"turn_summary": false`
 ## Updating and removing
 
 - **Update:** `cd ~/.nodaris-harness-src && git pull && python3 install.py`, then restart Claude Code as in step 4.
+- **Update the memory vault plugin** at least weekly. Claude Code compares only the plugin's version string, so it can report "already at the latest version" while serving an old copy; run both steps, then restart Claude Code:
+
+  ```bash
+  claude plugin marketplace update nodaris
+  claude plugin update nodaris-context --scope user
+  ```
+
+  If you said no to the plugin at install, add it with `claude plugin marketplace add NodarisAI/Nodaris-Memory-Vault` and `claude plugin install nodaris-context@nodaris --scope user`. Install it at user scope; at project scope it is missing from every other folder without an error.
 - **Remove:** `cd ~/.nodaris-harness-src && python3 install.py --uninstall`. Every file the harness changed is restored from the backup taken at install. Code graph tools you chose to install stay installed; remove them with `uv tool uninstall code-review-graph graphifyy` if you no longer want them.
 
 ## For admins: the Jev team key
