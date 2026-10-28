@@ -87,6 +87,7 @@
    ],
    "write_text": [
     "\"disableAllHooks\"\\s*:\\s*true",
+    "\"healthcare_guards\"\\s*:\\s*false",
     "\\[core\\][^\\[]*\\bhooksPath\\s*="
    ]
   },

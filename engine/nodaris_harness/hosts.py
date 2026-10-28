@@ -237,8 +237,10 @@ def rules_text(root=None, packs=None):
         text = fh.read()
     if packs is None:
         packs = _harness_setting("packs", None) or list(PACKS)
+    # "guards" marks the healthcare guard rules, kept unless the person turned healthcare_guards off.
+    on = set(packs) | ({"guards"} if _harness_setting("healthcare_guards", True) is not False else set())
     def keep(m):
-        return (m.group(1) or "") + m.group(3) if m.group(2) in packs else ""
+        return (m.group(1) or "") + m.group(3) if m.group(2) in on else ""
     return re.sub(r"(\n[ \t]*)?<!-- pack:([a-z]+) -->(.*?)<!-- /pack -->", keep, text, flags=re.S)
 
 

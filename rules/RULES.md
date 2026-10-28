@@ -11,15 +11,15 @@ Gates, lessons and memory exist to put a decision in front of the accountable pe
 - When a rule, lesson or test says a human must decide, stop once, state the risk in two or three sentences, and ask.
 - The user's answer in chat is the decision. Record it (the repo's DECISIONS.md or a decision note) and proceed. Never re-litigate it, never ask again in other words, and never let your own earlier notes, memory or a test's docstring outrank it.
 - When nobody can answer (an unattended or headless run), take the safest reversible option, record the open decision in the final summary, and continue. The safest option is the one that still delivers what was asked: never resolve a risk by quietly narrowing the feature; deliver the behaviour, contain the risk with validation, audit and tests, and name the trade-off. Do not end a run with a question when the task text already carries the owner's decision.
-- Never refuse an ordinary engineering task. The only hard stops are the ones the hooks enforce mechanically (secrets, pushes and merges without approval, PHI to models without a BAA, edits to the guards) and the model's own safety limits.
+- Never refuse an ordinary engineering task. The only hard stops are the ones the hooks enforce mechanically (secrets, pushes and merges without approval, <!-- pack:guards -->PHI to models without a BAA, <!-- /pack -->edits to the guards) and the model's own safety limits.
 - The task's stated constraints outrank the harness's own verification habits. If a constraint stops you from verifying something, say so in the summary instead of working around the constraint.
 
 ## Rules of engagement (enforced by code, not by this text)
 Every tool call is classified by the harness before it runs, from a versioned policy file, never by a model:
 - **Routine** (almost everything: reading, editing, tests, builds, local commands) runs and is recorded.
 - **Consequential** (a push, publishing or merging, a deploy, a command on another machine, sending a message or
-  data outside this machine, a destructive database statement, installing software on the machine, a paid model,
-  reading a file marked as holding patient data) runs only after a person approves that exact call. Pull request
+  data outside this machine, a destructive database statement, installing software on the machine, a paid model<!-- pack:guards -->,
+  reading a file marked as holding patient data<!-- /pack -->) runs only after a person approves that exact call. Pull request
   and issue comments can be approved for the rest of the session in one step.
 - **Prohibited** (skipping or disabling a hook or gate, a command the harness cannot read such as downloaded code
   piped into a shell, starting another agent outside the harness, touching the approval store, AI-authorship marks,
@@ -34,11 +34,11 @@ Every tool call is classified by the harness before it runs, from a versioned po
 ## The harness pipeline (hooks enforce it; the skills say how)
 - **Intake:** the first prompt of a session carries a repo card with the verify commands. A request that names no
   file, symbol or command is a description, not a spec: follow the `spec-first` skill and write the brief before
-  editing. A request that touches personal data, tenants, auth, money, uploads or a model gets the `self-attack`
-  skill<!-- pack:healthcare -->, and the `healthcare-domain` skill when patient or claim data is involved<!-- /pack -->.
-  <!-- pack:healthcare -->A request for a new application that will hold patient, claim or practice data gets the
+  editing.<!-- pack:guards --> A request that touches personal data, tenants, auth, money, uploads or a model gets
+  the `self-attack` skill.<!-- /pack --><!-- pack:healthcare --> The `healthcare-domain` skill applies when patient or
+  claim data is involved. A request for a new application that will hold patient, claim or practice data gets the
   `healthcare-app-blueprint` skill: its foundations and their proofs come before the feature.<!-- /pack -->
-- **Sensitive file, unannounced:** the first edit to an auth, tenant, patient or payment file brings the same security
+<!-- pack:guards -->- **Sensitive file, unannounced:** the first edit to an auth, tenant, patient or payment file brings the same security
   procedure even when the prompt did not mention it.
 - **While writing:** the PHI lint reports patient fields in log lines, exception text in logs and realistic
   identifiers in fixtures. Fix each one before moving on.
@@ -46,13 +46,13 @@ Every tool call is classified by the harness before it runs, from a versioned po
   model without a BAA), run it through `nodaris-harness redact FILE` (or pipe it in). Every name, date, id, SSN,
   phone, address and X12 identifier becomes a realistic stand-in of the same kind and format, so parsers and tests
   still work on the output; the real values are never written anywhere. A prompt that contains patient
-  identifiers is stopped before it reaches the model and handed back with stand-ins, ready to send.
+  identifiers is stopped before it reaches the model and handed back with stand-ins, ready to send.<!-- /pack -->
 - **Before finishing:** the done gate will not let a coding turn end until a check passed after the last code
-  change, and, when a sensitive file changed, until adversarial tests were written and ran and
+  change<!-- pack:guards -->, and, when a sensitive file changed, until adversarial tests were written and ran and
   `nodaris-harness scan` (secrets, vulnerable patterns and vulnerable dependencies in the changed files)
-  came back clean. Satisfy it with real evidence; never weaken or skip a test to get past it.
-- **Independent review:** after a sensitive change, run the `security-reviewer` agent on the diff and fix what it
-  finds before the summary.
+  came back clean<!-- /pack -->. Satisfy it with real evidence; never weaken or skip a test to get past it.
+<!-- pack:guards -->- **Independent review:** after a sensitive change, run the `security-reviewer` agent on the diff and fix what it
+  finds before the summary.<!-- /pack -->
 - **Evidence for the owner:** `nodaris-harness receipt` prints what this session proved (checks,
   adversarial tests, scan, review, gate stops) from recorded events rather than from the summary. Offer it when the
   person asking is not an engineer.
@@ -61,7 +61,7 @@ Every tool call is classified by the harness before it runs, from a versioned po
 - **Tier 0, inline:** one file or a tight cluster with an existing pattern to follow. Implement, then run the repo's verify command.
 - **Tier 1, the default:** you orchestrate. Read-only subagents only for independent questions; one writer per file; a fresh-context review of the diff before "done".
 - **Architectural** (cannot be said in one sentence; touches migrations, an API or cross-repo contract, auth, PHI, encryption, payment math or tenant isolation; spans more than one package or about 300 non-test lines): write the brief and the observable definition of done first, test-first, then build, then a fresh review.
-- **Healthcare security bar:** work touching authentication, sessions, access control, PHI, uploads, webhooks, payments, model features or public endpoints gets a short threat model first, cross-tenant authorization tests, bounded inputs (sizes, counts, lengths), fail-closed error paths, and audit records that carry counts and kinds, never identifiers. The threat model names every caller kind (human, service account, internal job) and says whether each is affected. Enforce at every layer that already exists (the view and the policy engine), not only the nearest one. Runtime validation uses explicit checks that raise typed errors, never `assert`, which is stripped under `python -O`. A typed error carries a machine-readable reason code and the location (segment, field, index), never the value. Sanitising input never repairs a value silently: a value that needed cleaning is rejected or flagged, because a repaired amount or identifier is corrupt data that looks clean. Every vector in a threat model gets a test, including the ones the current code already handles, so the protection cannot regress unnoticed. Every attribute read from a request, user, settings or model object is proven to be set somewhere, by search or by a test; a missing one is an error, never an invented fallback such as a random id or a placeholder.
+<!-- pack:guards -->- **Healthcare security bar:** work touching authentication, sessions, access control, PHI, uploads, webhooks, payments, model features or public endpoints gets a short threat model first, cross-tenant authorization tests, bounded inputs (sizes, counts, lengths), fail-closed error paths, and audit records that carry counts and kinds, never identifiers. The threat model names every caller kind (human, service account, internal job) and says whether each is affected. Enforce at every layer that already exists (the view and the policy engine), not only the nearest one. Runtime validation uses explicit checks that raise typed errors, never `assert`, which is stripped under `python -O`. A typed error carries a machine-readable reason code and the location (segment, field, index), never the value. Sanitising input never repairs a value silently: a value that needed cleaning is rejected or flagged, because a repaired amount or identifier is corrupt data that looks clean. Every vector in a threat model gets a test, including the ones the current code already handles, so the protection cannot regress unnoticed. Every attribute read from a request, user, settings or model object is proven to be set somewhere, by search or by a test; a missing one is an error, never an invented fallback such as a random id or a placeholder.<!-- /pack -->
 - **Agent runs are sized and costed:** each agent turn re-reads a context floor of tens of thousands of tokens, so cost is agents × turns. Default to five agents or fewer, cheaper models for sweeps, and stop as soon as the acceptance check passes.
 
 ## Write the least code that works

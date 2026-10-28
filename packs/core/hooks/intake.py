@@ -53,19 +53,20 @@ def main():
     prompt = data.get("prompt") or ""
     parts = []
     c = classify(prompt)
+    security = c["sensitive"] and hlib.healthcare_guards()
     with hlib.locked(sid) as state:
         state["blocks"] = 0
         if not state.get("card_shown"):
             parts.append("Harness repo card: " + repocard.render(repocard.detect(data.get("cwd") or os.getcwd())))
             state["card_shown"] = True
         hlib.add_event(state, kind="prompt", **c)
-        if c["sensitive"]:
+        if security:
             state["security_briefed"] = True
     if c["vague"]:
         parts.append(SPEC_FIRST)
     if c["code_ask"] and hlib.HARDENING_ASK.search(prompt):
         parts.append(hlib.HARDENING)
-    if c["sensitive"]:
+    if security:
         parts.append(SECURITY)
     if parts:
         hlib.emit_context("UserPromptSubmit", "\n\n".join(parts))
