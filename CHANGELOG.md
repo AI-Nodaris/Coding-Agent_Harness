@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2
+
+- Redaction no longer turns the names of screens and boxes into made-up people. A pair of capitalised words next to a patient word, such as the box "Last Name" beside "Date of Birth" or the window "Account Information" beside "patient", was taken for a patient's name and replaced by a random first and last name, for example inside a lesson that was meant to say which box to use. The redactor now knows the box names, screen names and column headers of the billing and practice-management software the agents work in, and never treats a pair that overlaps one of them as a name. A real two-word name next to the same words is still replaced. A single first name directly in front of one of these labels is not caught, as before, because the name rule only matches two-word names. Lessons already stored with a made-up name in place of a label are not changed by this release.
+
 ## 1.2.1
 
 - Added `nodaris-harness enforce off|on|relax RULE...|status` and the `enforce` setting. Off turns every harness stop (the prompt check for patient information, the finish check, the planning reminder, the subagent token budget, approvals and guards) into a warning: the action runs and the agent is told what would have stopped it. `relax` does this only for the rules you name, for example `nodaris-harness enforce relax done-gate R-DATA-PROMPT`. A relaxed stop is still recorded. Enforcement stays on when the setting is missing or the settings file cannot be read.

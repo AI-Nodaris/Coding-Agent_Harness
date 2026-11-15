@@ -266,11 +266,30 @@ NOT_NAMES = {"blue", "cross", "shield", "united", "health", "healthcare", "care"
              "humana", "anthem", "kaiser", "test", "patient", "fixture", "payer", "street", "avenue", "road", "general",
              "hospital", "clinic", "center", "medical", "group", "insurance", "plan", "national", "new", "york", "san",
              "los", "north", "south", "east", "west", "member", "claim", "date", "service", "birth"}
+# Box labels and screen names from the practice-management screens the agents work in. They are capitalised pairs
+# that sit next to patient words ("the box above Date of Birth is Last Name"), so the name rule would take them for
+# a person and write a made-up name into a lesson in their place.
+INTERFACE_LABELS = (
+    "Last Name", "First Name", "Middle Name", "Rendering Last Name", "Date of Birth", "Birth Date", "Zip Code",
+    "Marital Status", "Primary Address", "Billing Address", "Guarantor Home Phone", "Referring Physician",
+    "Account Information", "Account Posting", "Account Search", "Searching Accounts", "Searching Resources",
+    "Account Number", "Account Status", "Account Insurance", "Account Memo", "Account Queue", "Account Category",
+    "Control Number", "Control User", "Control Date", "Control Totals", "Close Control", "Open Controls",
+    "Inbound Queue", "Visit Information", "Visit Status", "Maintain Visits", "Display Account", "Patient Search",
+    "Patient Relationship to Insured Text", "Patient Relationship to Insured", "Insurance Plan", "Insurance Provider",
+    "Insurance Group", "Insurance Sequence", "Policy Number", "Group Number", "Payer Name", "Plan Name", "Plan Code",
+    "Service Date", "Service Location", "Financial Location", "Posting Date", "Start Date", "End Date", "Entry Date",
+    "Bill Status", "Line Posting", "Bulk Posting", "Pending Insurance Updates")
+LABEL = re.compile(r"\b(?:" + "|".join(re.escape(x) for x in sorted(INTERFACE_LABELS, key=len, reverse=True)) + r")\b", re.I)
 
 
 def _name_spans(text):
-    """Person names the scanner misses because no "Patient:" label precedes them, when a patient cue is close by."""
+    """Person names the scanner misses because no "Patient:" label precedes them, when a patient cue is close by.
+    A pair that overlaps an interface label is never a name."""
+    labels = [(m.start(), m.end()) for m in LABEL.finditer(text)]
     for m in NAME.finditer(text):
+        if any(s < m.end() and m.start() < e for s, e in labels):
+            continue
         words = {w.lower().strip(".,") for w in re.split(r"[\s,-]+", m.group(1)) if w}
         if words & NOT_NAMES:
             continue

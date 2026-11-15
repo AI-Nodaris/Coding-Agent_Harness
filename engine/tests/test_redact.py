@@ -91,6 +91,38 @@ def test_names_without_a_label_are_caught_near_a_patient_cue_and_colleagues_are_
     assert "Blue Cross" in R.redact_text("Blue Cross denied member id W123456789").text
 
 
+LABEL_SENTENCES = [
+    "The box right above the Date of Birth label is Last Name.",
+    "The Account Information window shows the patient chart.",
+    "In the Account Information window the patient's First Name and Middle Name boxes come first.",
+    "A Metro coded file's Patient Relationship to Insured Text column is used to decide the policy holder.",
+    "The sandbox Inbound Queue showed what looked like real patient records.",
+    "Control Number and Control User are on the Searching Accounts screen, next to the patient's date of birth.",
+    "Rendering Last Name is not the patient's Last Name, and Account Posting needs the member's Account Information.",
+    "The Last Name box sits above Date of Birth on the patient screen.",
+]
+
+
+def test_interface_labels_next_to_a_patient_cue_are_not_names():
+    for sentence in LABEL_SENTENCES:
+        for sur in (R.Surrogates(), None):
+            r = R.redact_text(sentence, sur)
+            assert r.text == sentence and r.counts == {}, (sentence, r.text, r.counts)
+
+
+def test_a_real_name_beside_an_interface_label_is_still_replaced():
+    cases = [
+        ("Jane Roe, date of birth 01/02/1980, was seen in the clinic.", "Jane Roe"),
+        ("The Last Name box held Jane Roe, whose date of birth is 01/02/1980.", "Jane Roe"),
+        ("Account Information for patient John Smith shows the wrong plan.", "John Smith"),
+    ]
+    for sentence, name in cases:
+        r = R.redact_text(sentence, R.Surrogates())
+        assert name not in r.text and r.counts.get("PATIENT_NAME") == 1, (sentence, r.text, r.counts)
+    kept = R.redact_text("The Last Name box held Jane Roe, whose date of birth is 01/02/1980.", R.Surrogates()).text
+    assert "The Last Name box held " in kept
+
+
 def test_redact_check_exits_1_when_it_finds_identifiers():
     import subprocess
     cli = os.path.join(os.path.dirname(__file__), "..", "..", "bin", "nodaris-harness")
