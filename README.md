@@ -81,7 +81,7 @@ To undo: `python3 install.py --uninstall` removes the harness from every agent i
 | `nodaris-harness doctor --host claude` | Proves the install works: a secret read, a destructive command, a hook bypass and a protected push are refused, and an ordinary command runs |
 | `nodaris-harness enforce off` | Turns every harness stop into a warning, so nothing waits on the harness; `enforce relax RULE...` does it for named rules only (the rule names appear in each stop message), `enforce on` restores the stops |
 | `nodaris-harness approve HASH` | Approves one waiting action, in your own terminal (`approve --list` shows what is waiting). In Claude Code you can also answer the approval question the agent shows you |
-| `nodaris-harness redact FILE` | Prints the file with patient identifiers replaced by stand-ins |
+| `nodaris-harness redact FILE` | Prints the file with patient identifiers replaced by stand-ins; box and screen names such as Last Name are left as they are |
 | `nodaris-harness scan` | Checks the changed files for secrets, risky patterns and vulnerable dependencies |
 | `nodaris-harness receipt` | Shows what the last session proved |
 | `nodaris-harness security check` | Runs a security assessment of the current repository |

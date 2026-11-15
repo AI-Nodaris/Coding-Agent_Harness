@@ -91,6 +91,77 @@ def test_names_without_a_label_are_caught_near_a_patient_cue_and_colleagues_are_
     assert "Blue Cross" in R.redact_text("Blue Cross denied member id W123456789").text
 
 
+LABEL_SENTENCES = [
+    "The box right above the Date of Birth label is Last Name.",
+    "The Account Information window shows the patient chart.",
+    "In the Account Information window the patient's First Name and Middle Name boxes come first.",
+    "A Metro coded file's Patient Relationship to Insured Text column is used to decide the policy holder.",
+    "The sandbox Inbound Queue showed what looked like real patient records.",
+    "Control Number and Control User are on the Searching Accounts screen, next to the patient's date of birth.",
+    "Rendering Last Name is not the patient's Last Name, and Account Posting needs the member's Account Information.",
+    "The Last Name box sits above Date of Birth on the patient screen.",
+]
+
+
+def test_interface_labels_next_to_a_patient_cue_are_not_names():
+    for sentence in LABEL_SENTENCES:
+        for sur in (R.Surrogates(), None):
+            r = R.redact_text(sentence, sur)
+            assert r.text == sentence and r.counts == {}, (sentence, r.text, r.counts)
+
+
+def test_a_real_name_beside_an_interface_label_is_still_replaced():
+    cases = [
+        ("Jane Roe, date of birth 01/02/1980, was seen in the clinic.", "Jane Roe"),
+        ("The Last Name box held Jane Roe, whose date of birth is 01/02/1980.", "Jane Roe"),
+        ("Account Information for patient John Smith shows the wrong plan.", "John Smith"),
+    ]
+    for sentence, name in cases:
+        r = R.redact_text(sentence, R.Surrogates())
+        assert name not in r.text and r.counts.get("PATIENT_NAME") == 1, (sentence, r.text, r.counts)
+    kept = R.redact_text("The Last Name box held Jane Roe, whose date of birth is 01/02/1980.", R.Surrogates()).text
+    assert "The Last Name box held " in kept
+
+
+PROSE_WITH_STREET_WORDS = [
+    "A Sheets copy made 246 of 253 cases fail the place-of-service check and showed account numbers as 9.6E9.",
+    "12 rows use the place of service code.",
+    "All 40 files on the shared drive were renamed.",
+    "Only 5 of 7 tests take the long way round.",
+    "Run 3 cases in place.",
+    "Nothing was left, 0 on the way.",
+]
+
+
+def test_ordinary_sentences_ending_in_a_street_word_are_not_addresses():
+    for sentence in PROSE_WITH_STREET_WORDS:
+        r = R.redact_text(sentence, R.Surrogates())
+        assert r.text == sentence and r.counts == {}, (sentence, r.text, r.counts)
+
+
+def test_real_street_addresses_are_still_replaced():
+    cases = [
+        ("Send it to 253 Maple Street, Springfield.", "253 Maple Street"),
+        ("Ship to 42 OAK ST today.", "42 OAK ST"),
+        ("She lives at 77 birch way.", "77 birch way"),
+        ("Mail to 100 Martin Luther King Jr Blvd today.", "100 Martin Luther King Jr Blvd"),
+        ("Patient address 1600 Pennsylvania Avenue NW.", "1600 Pennsylvania Avenue"),
+        ("Deliver to 12 Isle of Palms Dr.", "12 Isle of Palms Dr"),
+    ]
+    for sentence, address in cases:
+        r = R.redact_text(sentence, R.Surrogates())
+        assert address not in r.text and r.counts.get("ADDRESS") == 1, (sentence, r.text, r.counts)
+    mixed = "Of 253 cases fail the place-of-service rule, one was shipped to 42 OAK ST."
+    r = R.redact_text(mixed, R.Surrogates())
+    assert "253 cases fail the place-of-service rule" in r.text and "42 OAK ST" not in r.text and r.counts == {"ADDRESS": 1}
+
+
+def test_an_x12_address_line_is_replaced_even_when_it_contains_a_function_word():
+    era = ERA.replace("42 OAK ST", "100 BLOCK OF MAIN ST")
+    assert "BLOCK OF MAIN" in era
+    assert "BLOCK OF MAIN" not in R.redact_text(era, R.Surrogates()).text
+
+
 def test_redact_check_exits_1_when_it_finds_identifiers():
     import subprocess
     cli = os.path.join(os.path.dirname(__file__), "..", "..", "bin", "nodaris-harness")

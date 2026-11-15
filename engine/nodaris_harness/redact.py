@@ -266,17 +266,54 @@ NOT_NAMES = {"blue", "cross", "shield", "united", "health", "healthcare", "care"
              "humana", "anthem", "kaiser", "test", "patient", "fixture", "payer", "street", "avenue", "road", "general",
              "hospital", "clinic", "center", "medical", "group", "insurance", "plan", "national", "new", "york", "san",
              "los", "north", "south", "east", "west", "member", "claim", "date", "service", "birth"}
+# Box labels and screen names from the practice-management screens the agents work in. They are capitalised pairs
+# that sit next to patient words ("the box above Date of Birth is Last Name"), so the name rule would take them for
+# a person and write a made-up name into a lesson in their place.
+INTERFACE_LABELS = (
+    "Last Name", "First Name", "Middle Name", "Rendering Last Name", "Date of Birth", "Birth Date", "Zip Code",
+    "Marital Status", "Primary Address", "Billing Address", "Guarantor Home Phone", "Referring Physician",
+    "Account Information", "Account Posting", "Account Search", "Searching Accounts", "Searching Resources",
+    "Account Number", "Account Status", "Account Insurance", "Account Memo", "Account Queue", "Account Category",
+    "Control Number", "Control User", "Control Date", "Control Totals", "Close Control", "Open Controls",
+    "Inbound Queue", "Visit Information", "Visit Status", "Maintain Visits", "Display Account", "Patient Search",
+    "Patient Relationship to Insured Text", "Patient Relationship to Insured", "Insurance Plan", "Insurance Provider",
+    "Insurance Group", "Insurance Sequence", "Policy Number", "Group Number", "Payer Name", "Plan Name", "Plan Code",
+    "Service Date", "Service Location", "Financial Location", "Posting Date", "Start Date", "End Date", "Entry Date",
+    "Bill Status", "Line Posting", "Bulk Posting", "Pending Insurance Updates")
+LABEL = re.compile(r"\b(?:" + "|".join(re.escape(x) for x in sorted(INTERFACE_LABELS, key=len, reverse=True)) + r")\b", re.I)
 
 
 def _name_spans(text):
-    """Person names the scanner misses because no "Patient:" label precedes them, when a patient cue is close by."""
+    """Person names the scanner misses because no "Patient:" label precedes them, when a patient cue is close by.
+    A pair that overlaps an interface label is never a name."""
+    labels = [(m.start(), m.end()) for m in LABEL.finditer(text)]
     for m in NAME.finditer(text):
+        if any(s < m.end() and m.start() < e for s, e in labels):
+            continue
         words = {w.lower().strip(".,") for w in re.split(r"[\s,-]+", m.group(1)) if w}
         if words & NOT_NAMES:
             continue
         window = text[max(0, m.start() - 60):m.end() + 60]
         if NAME_CUE.search(window):
             yield m.start(1), m.end(1), "PATIENT_NAME"
+
+
+# The scanner's street rule is a house number, one to four words and a street word, ignoring case, so a sentence such as
+# "253 cases fail the place-of-service check" or "40 files on the shared drive" matches and gets a made-up street (and a
+# new number) written over it. Prose has a function word and its other words are lowercase; a street name has no function
+# word ("77 birch way") or is capitalised around it ("12 Isle of Palms Dr", "100 BLOCK OF MAIN ST"). The scanner file is
+# a hash-guarded copy, so the filter lives here. Addresses the X12 tier finds are structure, not prose, and are never
+# filtered.
+FUNCTION_WORDS = frozenset("an the of in on at to for with by from per and or but is are was were be it its this that "
+                           "these those as not no if so than then we you they he she".split())
+
+
+def _prose_for_street(f, text):
+    if f.kind != "ADDRESS" or f.tier != "regex":
+        return False
+    words = [w for w in re.split(r"[\s-]+", text[f.start:f.end]) if w.isalpha()][:-1]  # the last word is the street word
+    names = [w for w in words if w.lower() not in FUNCTION_WORDS]
+    return len(names) < len(words) and not (names and all(w[0].isupper() for w in names))
 
 
 def _x12_spans(text):
@@ -327,7 +364,7 @@ def redact_text(text, surrogates=None):
             return Result("", {}, "refused", scan.coverage, "the text could not be scanned (too large, or a detector failed)")
         spans = [(s, e, k, 0) for s, e, k in _x12_spans(text)] + [(s, e, k, 1) for s, e, k in _labelled_spans(text)]
         spans += [(s, e, k, 3) for s, e, k in _name_spans(text)]
-        spans += [(f.start, f.end, f.kind, 2) for f in scan.findings]
+        spans += [(f.start, f.end, f.kind, 2) for f in scan.findings if not _prose_for_street(f, text)]
         chosen = []
         for s, e, k, _ in sorted(spans, key=lambda x: (x[3], -(x[1] - x[0]), x[0])):
             if e > s and all(e <= cs or s >= ce for cs, ce, _ in chosen):
