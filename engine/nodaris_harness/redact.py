@@ -298,6 +298,24 @@ def _name_spans(text):
             yield m.start(1), m.end(1), "PATIENT_NAME"
 
 
+# The scanner's street rule is a house number, one to four words and a street word, ignoring case, so a sentence such as
+# "253 cases fail the place-of-service check" or "40 files on the shared drive" matches and gets a made-up street (and a
+# new number) written over it. Prose has a function word and its other words are lowercase; a street name has no function
+# word ("77 birch way") or is capitalised around it ("12 Isle of Palms Dr", "100 BLOCK OF MAIN ST"). The scanner file is
+# a hash-guarded copy, so the filter lives here. Addresses the X12 tier finds are structure, not prose, and are never
+# filtered.
+FUNCTION_WORDS = frozenset("an the of in on at to for with by from per and or but is are was were be it its this that "
+                           "these those as not no if so than then we you they he she".split())
+
+
+def _prose_for_street(f, text):
+    if f.kind != "ADDRESS" or f.tier != "regex":
+        return False
+    words = [w for w in re.split(r"[\s-]+", text[f.start:f.end]) if w.isalpha()][:-1]  # the last word is the street word
+    names = [w for w in words if w.lower() not in FUNCTION_WORDS]
+    return len(names) < len(words) and not (names and all(w[0].isupper() for w in names))
+
+
 def _x12_spans(text):
     """Identifier elements inside a real interchange: a fixed-width ISA header through its IEA trailer."""
     pos = 0
@@ -346,7 +364,7 @@ def redact_text(text, surrogates=None):
             return Result("", {}, "refused", scan.coverage, "the text could not be scanned (too large, or a detector failed)")
         spans = [(s, e, k, 0) for s, e, k in _x12_spans(text)] + [(s, e, k, 1) for s, e, k in _labelled_spans(text)]
         spans += [(s, e, k, 3) for s, e, k in _name_spans(text)]
-        spans += [(f.start, f.end, f.kind, 2) for f in scan.findings]
+        spans += [(f.start, f.end, f.kind, 2) for f in scan.findings if not _prose_for_street(f, text)]
         chosen = []
         for s, e, k, _ in sorted(spans, key=lambda x: (x[3], -(x[1] - x[0]), x[0])):
             if e > s and all(e <= cs or s >= ce for cs, ce, _ in chosen):
